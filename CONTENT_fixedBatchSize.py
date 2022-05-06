@@ -17,9 +17,7 @@ from patient_data_reader import PatientReader
 import os
 import time
 import numpy as np
-#from lasagne.layers.timefusion import MaskingLayer
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, accuracy_score, precision_recall_curve
-#from lasagne.layers.theta import ThetaLayer
 
 # Number of units in the hidden (recurrent) layer
 N_HIDDEN = 200

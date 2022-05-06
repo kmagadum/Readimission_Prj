@@ -6,26 +6,22 @@ sum of two numbers in a sequence of random numbers sampled uniformly from
 [0, 1] based on a separate marker sequence.
 '''
 
-#from __future__ import print_function
+import time
 
+import lasagne
 import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 import theano
 import theano.tensor as T
-import lasagne
+from lasagne.layers import *
+
+from sklearn.metrics import average_precision_score as pr_auc
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, accuracy_score, precision_recall_curve
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
+
 from config import Config
 from patient_data_reader import PatientReader
-import os
-import time
-import numpy as np
-#import MaskingLayer
-#from lasagne.layers.timefusion import MaskingLayer
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, accuracy_score, precision_recall_curve
-#from lasagne.layers.theta import ThetaLayer
-from lasagne.layers import *
-from sklearn.cluster import MiniBatchKMeans
-from sklearn.metrics import average_precision_score as pr_auc
-import seaborn as sns
-from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 # Number of units in the hidden (recurrent) layer
 N_HIDDEN = 200
@@ -81,40 +77,39 @@ def loadEmbeddingMatrix(wordvecFile):
 	return W
 
 class GaussianSampleLayer(lasagne.layers.MergeLayer):
-    def __init__(self, mu, logsigma,rng=None, **kwargs):
+    def __init__(self, mu, logsigma,maxlen,rng=None, **kwargs):
         self.rng = rng if rng else RandomStreams(lasagne.random.get_rng().randint(1,2147462579))
-        self.theta = T.zeros([mu.output_shape[0],80,mu.output_shape[1]])
+        self.maxlen = maxlen
+        self.theta = T.zeros([mu.output_shape[0],self.maxlen,mu.output_shape[1]])
         super(GaussianSampleLayer, self).__init__([mu, logsigma], **kwargs)
 
     def get_output_shape_for(self, input_shapes):
-        #return input_shapes[0]
-        return (1,80,50)
+        r,c = input_shapes[0]
+        return (r,self.maxlen,c)
 
     def get_output_for(self, inputs, deterministic=False, **kwargs):
         mu, logsigma = inputs
 
-        shape=(self.input_shapes[0][0] or inputs[0].shape[0],80,
+        shape=(self.input_shapes[0][0] or inputs[0].shape[0],self.maxlen,
                 self.input_shapes[0][1] or inputs[0].shape[1])
-        #print(shape)
+
         if deterministic:
             return mu
 
-        #temp = T.zeros([inputs[0].shape[0],230,inputs[0].shape[1]])
-        #self.theta = T.repeat((mu + T.exp(logsigma)),80,axis=0)
-        self.theta = T.sum(mu + T.exp(logsigma))
+        self.theta = (mu + logsigma)
         self.kl = 0.5 * T.sum(1 + 2*logsigma - T.sqr(mu) - T.exp(2 * logsigma))
         return self.theta
-
-        #return np.float32()
 
 
 
 #def main(data_sets, W_embed):
+
 def main(data_sets):
     # Optimization learning rate
     LEARNING_RATE = theano.shared(np.array(0.001, dtype=theano.config.floatX))
     eta_decay = np.array(0.5, dtype=theano.config.floatX)
     # Min/max sequence length
+    #MAX_LENGTH = 80
     MAX_LENGTH = 80
     X_raw_data, Y_raw_data = data_sets.get_data_from_type("train")
     trainingAdmiSeqs, trainingMask, trainingLabels, trainingLengths, ltr = prepare_data(X_raw_data, Y_raw_data, vocabsize= 619, maxlen = MAX_LENGTH)
@@ -155,8 +150,6 @@ def main(data_sets):
         l_embed, N_HIDDEN, mask_input=l_mask, grad_clipping=GRAD_CLIP,
         only_return_final=False)
 
-
-    #print(l_mask.output_shape)
     l_forward = l_forward0
     #l_forward = MaskingLayer([l_forward0, l_mask])
 
@@ -164,34 +157,16 @@ def main(data_sets):
     l_2 = lasagne.layers.DenseLayer(l_1, num_units=N_HIDDEN, nonlinearity=lasagne.nonlinearities.rectify, num_leading_axes=2)
     mu = lasagne.layers.DenseLayer(l_2, num_units=n_topics, nonlinearity=None, num_leading_axes=1)# batchsize * n_topic
     log_sigma = lasagne.layers.DenseLayer(l_2, num_units=n_topics, nonlinearity=None, num_leading_axes=1)# batchsize * n_topic
-    #l_theta = ThetaLayer([mu,log_sigma],maxlen=MAX_LENGTH)#batchsize * maxlen * n_topic
-    #l_theta = BatchNormDNNLayer(mu,log_sigma)
-    #l_theta = mu * T.exp(log_sigma) * MAX_LENGTH
-    #print(mu)
-    #temp = lasagne.layers.get_all_param_values(log_sigma)
-    #print(temp)
-    #print(log_sigma.output_shape)
-    l_theta = GaussianSampleLayer(mu, log_sigma,
+
+    l_theta = GaussianSampleLayer(mu, log_sigma, MAX_LENGTH,
                     name='dec_output')
     print('#######')
 
-
-    #l_theta =np.float32(np.random.normal(mu,log_sigma,MAX_LENGTH))
-    #print(l_theta.get_output_for([mu,log_sigma]))
-    #temp = lasagne.layers.ElemwiseMergeLayer([mu, log_sigma],T.add)
-    #print(l_in.output_shape)
-    #print(n_topics)
-    #l_theta = lasagne.layers.DenseLayer([mu,log_sigma], b=None, num_units=MAX_LENGTH, nonlinearity=None, num_leading_axes=1)
     l_B = lasagne.layers.DenseLayer(l_in, b=None, num_units=n_topics, nonlinearity=None, num_leading_axes=2)
-    #print(l_B.output_shape)
-    #print(MAX_LENGTH)
 
     print(l_theta.output_shape)
     l_context = lasagne.layers.ElemwiseMergeLayer([l_B, l_theta],T.mul)
-    #print(l_context.output_shape)
-    #print(l_context.)
-    #print(X.mean(-1).shape)
-    #print(l_theta.theta)
+
     l_context = lasagne.layers.ExpressionLayer(l_context, lambda X: X.mean(-1), output_shape="auto")
 
     l_dense0 = lasagne.layers.DenseLayer(
@@ -213,8 +188,7 @@ def main(data_sets):
     predicted_values = network_output.flatten()
     # Our cost will be mean-squared error
     cost = lasagne.objectives.binary_crossentropy(predicted_values, target_values_flat)
-    #kl_term = l_theta.klterm
-    #kl_term = 0.21
+
     kl_term = l_theta.kl
     cost = cost.sum()+kl_term
 
@@ -237,18 +211,15 @@ def main(data_sets):
     prd = theano.function([l_in.input_var, l_mask.input_var], test_output)
     #rnn_out = T.concatenate(l_theta.theta, lasagne.layers.get_output(l_forward0)[:,-1,:].reshape((N_BATCH, N_HIDDEN)),axis=1)
 
-    #temp = lasagne.layers.get_output(l_forward0)[:,-1,:].reshape((N_BATCH, N_HIDDEN))
-    #print(temp)
-    #theta_x1 = T.scalar('theta_x1')
     theta_x1 = theano.shared(np.array([[0.8]], dtype=theano.config.floatX))
+    print(theta_x1)
 
-    #theta_x = 0.8 **1
-    output_theta = theano.function([l_in.input_var, l_mask.input_var], [theta_x1, lasagne.layers.get_output(l_forward0)[:,-1,:].reshape((N_BATCH, N_HIDDEN))], on_unused_input='ignore')
+    output_theta = theano.function([l_in.input_var, l_mask.input_var], [l_theta.theta, lasagne.layers.get_output(l_forward0)[:,-1,:].reshape((N_BATCH, N_HIDDEN))], on_unused_input='ignore')
 
 
 
     print("Training ...")
-    num_epochs = 2
+    num_epochs = 5
     try:
         for epoch in range(num_epochs):
             train_err = 0
@@ -263,18 +234,18 @@ def main(data_sets):
                 train_batches += 1
                 print('Train.....')
                 theta_train, rnnvec_train = output_theta(inputs[0], inputs[2])
-                print('HEre .....1111')
-                #print(theta_train)
-                #print(rnnvec_train)
+                #print('HEre .....1111')
+                #print(theta_train.shape)
+                #print(rnnvec_train.shape)
                 rnnout_train = np.concatenate([theta_train, rnnvec_train], axis=1)
                 thetas_train.append(rnnout_train.flatten())
-                print('HERE 22222')
-                print(train_batches)
+                #print('HERE 22222')
+                #print(train_batches)
 
                 if (train_batches+1)% 3 == 0:
                     print(train_batches)
 
-                if train_batches == 3:
+                if train_batches == 5:
                     break
 
 
@@ -297,6 +268,15 @@ def main(data_sets):
             #     val_batches += 1
             # val_auc = roc_auc_score(new_validlabels, pred_validlabels)
             # Then we print the results for this epoch:
+
+            file = open("C:/Kirti/MS DS/DLH/prj/CONTENT_results/FResult.txt", "a")
+
+            file.write("Epoch {} of {} took {:.3f}s \n".format(
+                epoch + 1, num_epochs, time.time() - start_time))
+            file.write("  training loss:\t\t{:.6f} \n".format(train_err / train_batches))
+
+            file.close()
+
             print("Epoch {} of {} took {:.3f}s".format(
                 epoch + 1, num_epochs, time.time() - start_time))
             print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
@@ -334,8 +314,22 @@ def main(data_sets):
             #np.save("theta_with_rnnvec/thetas"+str(epoch),thetas)
 
 
-            test_pre_rec_f1 = precision_recall_fscore_support(np.array(new_testlabels), np.array(pred_testlabels)>0.5, average='binary')
+            test_pre_rec_f1 = precision_recall_fscore_support(np.array(new_testlabels), np.array(pred_testlabels)>0.4, average='binary')
             test_acc = accuracy_score(np.array(new_testlabels), np.array(pred_testlabels)>0.5)
+
+            file1 = open("C:/Kirti/MS DS/DLH/prj/CONTENT_results/FResult.txt","a")
+
+            file1.write("Final results:\n")
+            file1.write("  test loss:\t\t{:.6f}\n".format(test_err / test_batches))
+            file1.write("  test auc:\t\t{:.6f}\n".format(test_auc))
+            file1.write("  test pr_auc:\t\t{:.6f}\n".format(test_pr_auc))
+            file1.write("  test accuracy:\t\t{:.2f} %\n".format(
+                test_acc * 100))
+            file1.write("  test Precision, Recall and F1:\t\t{:.4f} %\t\t{:.4f}\t\t{:.4f}\n".format(test_pre_rec_f1[0],
+                                                                                            test_pre_rec_f1[1],
+                                                                                            test_pre_rec_f1[2]))
+
+            file1.close()
             print("Final results:")
             print("  test loss:\t\t{:.6f}".format(test_err / test_batches))
             print("  test auc:\t\t{:.6f}".format(test_auc))
@@ -397,7 +391,7 @@ def prepare_data(seqs, labels, vocabsize, maxlen=None):
     print(maxlen)
     print(vocabsize)
     print(n_samples)
-    #n_samples =
+
 
     x = np.zeros((n_samples, maxlen, vocabsize)).astype('int64')
     x_mask = np.zeros((n_samples, maxlen)).astype(theano.config.floatX)
@@ -417,31 +411,39 @@ def prepare_data(seqs, labels, vocabsize, maxlen=None):
 
 
 def eval(epoch):
-    new_testlabels = np.load("CONTENT_results/testlabels_"+str(epoch)+"_3999.npy")
-    pred_testlabels = np.load("CONTENT_results/predlabels_"+str(epoch)+"_3999.npy")
+    #new_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/testlabels_"+str(epoch)+"_1.npy")
+    #pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/predlabels_"+str(epoch)+"_1.npy")
+
+    new_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/testlabels_" + "4.npy")
+    pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/predlabels_" + "4.npy")
     test_auc = roc_auc_score(new_testlabels, pred_testlabels)
     test_pr_auc = pr_auc(new_testlabels, pred_testlabels)
-    test_acc = accuracy_score(new_testlabels, pred_testlabels>0.5)
+    test_acc = accuracy_score(new_testlabels, pred_testlabels>0.4)
     print('AUC: %0.04f' % (test_auc))
     print('PRAUC: %0.04f' % (test_pr_auc))
     print('ACC: %0.04f' % (test_acc))
     pre, rec, threshold = precision_recall_curve(new_testlabels, pred_testlabels)
-    test_pre_rec_f1 = precision_recall_fscore_support(new_testlabels, pred_testlabels > 0.5, average='binary')
+    test_pre_rec_f1 = precision_recall_fscore_support(new_testlabels, pred_testlabels > 0.4, average='binary')
     print("  test Precision, Recall and F1:\t\t{:.4f} %\t\t{:.4f}\t\t{:.4f}".format(test_pre_rec_f1[0],
                                                                                     test_pre_rec_f1[1],
                                                                                     test_pre_rec_f1[2]))
-    epoch = 6
-    rnn_testlabels = np.load("rnn_results/testlabels_" + str(epoch) + ".npy")
-    rnn_pred_testlabels = np.load("rnn_results/predlabels_" + str(epoch) + ".npy")
+    epoch = 4
+    #rnn_testlabels = np.load("rnn_results/testlabels_" + str(epoch) + ".npy")
+    #rnn_pred_testlabels = np.load("rnn_results/predlabels_" + str(epoch) + ".npy")
+    rnn_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/testlabels_" + str(epoch) + ".npy")
+    rnn_pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/predlabels_" + str(epoch) + ".npy")
+
+
     pre_rnn, rec_rnn, threshold_rnn = precision_recall_curve(rnn_testlabels, rnn_pred_testlabels)
-    test_pre_rec_f1 = precision_recall_fscore_support(rnn_testlabels, rnn_pred_testlabels > 0.5, average='binary')
+    test_pre_rec_f1 = precision_recall_fscore_support(rnn_testlabels, rnn_pred_testlabels > 0.4, average='binary')
     test_auc = roc_auc_score(rnn_testlabels, rnn_pred_testlabels)
-    test_acc = accuracy_score(rnn_testlabels, rnn_pred_testlabels > 0.5)
+    test_acc = accuracy_score(rnn_testlabels, rnn_pred_testlabels > 0.4)
     print('rnnAUC: %0.04f' % (test_auc))
     print('rnnACC: %0.04f' % (test_acc))
     print("  rnn test Precision, Recall and F1:\t\t{:.4f} %\t\t{:.4f}\t\t{:.4f}".format(test_pre_rec_f1[0],
                                                                                     test_pre_rec_f1[1],
                                                                                     test_pre_rec_f1[2]))
+    '''comment to run with other stuff 
     epoch = 5
     wv_testlabels = np.load("rnnwordvec_results/testlabels_" + str(epoch) + ".npy")
     wv_pred_testlabels = np.load("rnnwordvec_results/predlabels_" + str(epoch) + ".npy")
@@ -453,13 +455,13 @@ def eval(epoch):
     print('wvACC: %0.04f' % (test_acc))
     print("  wv test Precision, Recall and F1:\t\t{:.4f} %\t\t{:.4f}\t\t{:.4f}".format(test_pre_rec_f1[0],
                                                                                     test_pre_rec_f1[1],
-                                                                                    test_pre_rec_f1[2]))
+                                                                                    test_pre_rec_f1[2]))'''
 
 
     import matplotlib.pyplot as plt
     plt.plot(rec, pre, label='CONTENT')
     plt.plot(rec_rnn, pre_rnn, label='RNN')
-    plt.plot(rec_wv, pre_wv, label='RNN+word2vec')
+    #plt.plot(rec_wv, pre_wv, label='RNN+word2vec')
     plt.legend()
 
     plt.title("Precision-Recall Curves")
@@ -488,8 +490,6 @@ def outputCodes(indexs, patientList):
 
 
 def scatter(x, colors):
-    import matplotlib.patheffects as PathEffects
-
     # We choose a color palette with seaborn.
     palette = np.array(sns.color_palette("hls", 50))
     # We create a scatter plot.
@@ -514,11 +514,12 @@ def scatter(x, colors):
     return f, ax, sc, txts
 
 def clustering(thetaPath, dataset):
-    from sklearn.cluster import MiniBatchKMeans, SpectralClustering
+    from sklearn.cluster import MiniBatchKMeans
     from sklearn.manifold import TSNE
 
     thetas = np.asarray(np.load(thetaPath))[:,50:]
-    ypred = MiniBatchKMeans(n_clusters=20).fit_predict(thetas).flatten()
+    #ypred = MiniBatchKMeans(n_clusters=20).fit_predict(thetas).flatten()
+    ypred = MiniBatchKMeans(n_clusters=4).fit_predict(thetas).flatten()
     tsn = TSNE(random_state=256,n_iter=2000).fit_transform(thetas)
     scatter(tsn, ypred)
     plt.show()
@@ -531,7 +532,7 @@ def clustering(thetaPath, dataset):
         new_X.append(ss)
 
     print("\n")
-    for ylabel in range(20):
+    for ylabel in range(4):
         indexs = np.where(ypred == ylabel)[0]
         print("Cluster", ylabel)
         outputCodes(indexs, new_X)
@@ -581,9 +582,9 @@ if __name__ == '__main__':
     data_sets = PatientReader(FLAGS)
     #wordvecPath = os.path.join(FLAGS.data_path, "word2vec.vector")
     #W_embed = loadEmbeddingMatrix(wordvecPath)
-    # main(data_sets, W_embed)
-    main(data_sets)
+    #main(data_sets, W_embed)
+    #main(data_sets)
     eval(2)
 
-    #thetaPath = "theta_with_rnnvec/thetas_train0.npy"
-    #clustering(thetaPath, data_sets)
+    thetaPath = "C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/thetas_train1.npy"
+    clustering(thetaPath, data_sets)
