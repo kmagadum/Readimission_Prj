@@ -1,0 +1,56 @@
+Epoch 1 of 7 took 1845.154s 
+  training loss:		-60.351058 
+Final results:
+  test loss:		-7747.591092
+  test auc:		0.463247
+  test pr_auc:		0.280376
+  test accuracy:		72.69 %
+  test Precision, Recall and F1:		0.3684 %		0.0464		0.0824
+Epoch 2 of 7 took 1944.345s 
+  training loss:		-160623039.113363 
+Final results:
+  test loss:		-222955860740.837555
+  test auc:		0.428124
+  test pr_auc:		0.255457
+  test accuracy:		72.51 %
+  test Precision, Recall and F1:		0.4286 %		0.0397		0.0727
+Epoch 3 of 7 took 1970.921s 
+  training loss:		-11023326773031958.000000 
+Final results:
+  test loss:		-1363063200918792111652864.000000
+  test auc:		0.488007
+  test pr_auc:		0.260350
+  test accuracy:		69.80 %
+  test Precision, Recall and F1:		0.2152 %		0.2252		0.2201
+Epoch 4 of 7 took 1812.238s 
+  training loss:		-1447934940335715226581093436649757474816.000000 
+Final results:
+  test loss:		-2227935691023552384796731211209636175717335040.000000
+  test auc:		0.568729
+  test pr_auc:		0.317281
+  test accuracy:		65.82 %
+  test Precision, Recall and F1:		0.2863 %		0.4834		0.3596
+Epoch 5 of 7 took 1779.775s 
+  training loss:		-22429698451613868943411808602688387938805839378332180383796792655872.000000 
+Final results:
+  test loss:		-260475140034260512229545625689402209223908618758458983457386973831786513643339776.000000
+  test auc:		0.614214
+  test pr_auc:		0.370256
+  test accuracy:		67.63 %
+  test Precision, Recall and F1:		0.3869 %		0.5099		0.4400
+Epoch 6 of 7 took 1879.322s 
+  training loss:		nan 
+Final results:
+  test loss:		-1328992005843037096238394285264457493501870924984360746532330502846093635129635125188148426862569797398701972844147900416.000000
+  test auc:		0.631956
+  test pr_auc:		0.390931
+  test accuracy:		71.61 %
+  test Precision, Recall and F1:		0.4302 %		0.2450		0.3122
+Epoch 7 of 7 took 1825.578s 
+  training loss:		-668913145413277121280566539328074978379506347897933525443628422265724631169945848986133918925025422134441031760528965765552413684388325228544.000000 
+Final results:
+  test loss:		nan
+  test auc:		0.679434
+  test pr_auc:		0.471532
+  test accuracy:		71.25 %
+  test Precision, Recall and F1:		0.4339 %		0.5430		0.4824

@@ -219,7 +219,7 @@ def main(data_sets):
 
 
     print("Training ...")
-    num_epochs = 5
+    num_epochs = 7
     try:
         for epoch in range(num_epochs):
             train_err = 0
@@ -245,7 +245,7 @@ def main(data_sets):
                 if (train_batches+1)% 3 == 0:
                     print(train_batches)
 
-                if train_batches == 5:
+                if train_batches == 7:
                     break
 
 
@@ -309,8 +309,8 @@ def main(data_sets):
             np.save("C:/Kirti/MS DS/DLH/prj/CONTENT_results/predlabels_"+str(epoch),pred_testlabels)
             # np.save("CONTENT_results/thetas"+str(epoch),thetas)
 
-            np.save("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/testlabels_"+str(epoch),new_testlabels)
-            np.save("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/predlabels_"+str(epoch),pred_testlabels)
+            #np.save("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/testlabels_"+str(epoch),new_testlabels)
+            #np.save("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/predlabels_"+str(epoch),pred_testlabels)
             #np.save("theta_with_rnnvec/thetas"+str(epoch),thetas)
 
 
@@ -414,8 +414,8 @@ def eval(epoch):
     #new_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/testlabels_"+str(epoch)+"_1.npy")
     #pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/predlabels_"+str(epoch)+"_1.npy")
 
-    new_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/testlabels_" + "4.npy")
-    pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/predlabels_" + "4.npy")
+    new_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/testlabels_" + "6.npy")
+    pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/CONTENT_results/predlabels_" + "6.npy")
     test_auc = roc_auc_score(new_testlabels, pred_testlabels)
     test_pr_auc = pr_auc(new_testlabels, pred_testlabels)
     test_acc = accuracy_score(new_testlabels, pred_testlabels>0.4)
@@ -430,19 +430,19 @@ def eval(epoch):
     epoch = 4
     #rnn_testlabels = np.load("rnn_results/testlabels_" + str(epoch) + ".npy")
     #rnn_pred_testlabels = np.load("rnn_results/predlabels_" + str(epoch) + ".npy")
-    rnn_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/testlabels_" + str(epoch) + ".npy")
-    rnn_pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/predlabels_" + str(epoch) + ".npy")
+    #rnn_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/testlabels_" + str(epoch) + ".npy")
+    #rnn_pred_testlabels = np.load("C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/predlabels_" + str(epoch) + ".npy")
 
 
-    pre_rnn, rec_rnn, threshold_rnn = precision_recall_curve(rnn_testlabels, rnn_pred_testlabels)
-    test_pre_rec_f1 = precision_recall_fscore_support(rnn_testlabels, rnn_pred_testlabels > 0.4, average='binary')
-    test_auc = roc_auc_score(rnn_testlabels, rnn_pred_testlabels)
-    test_acc = accuracy_score(rnn_testlabels, rnn_pred_testlabels > 0.4)
-    print('rnnAUC: %0.04f' % (test_auc))
-    print('rnnACC: %0.04f' % (test_acc))
-    print("  rnn test Precision, Recall and F1:\t\t{:.4f} %\t\t{:.4f}\t\t{:.4f}".format(test_pre_rec_f1[0],
-                                                                                    test_pre_rec_f1[1],
-                                                                                    test_pre_rec_f1[2]))
+    #pre_rnn, rec_rnn, threshold_rnn = precision_recall_curve(rnn_testlabels, rnn_pred_testlabels)
+    #test_pre_rec_f1 = precision_recall_fscore_support(rnn_testlabels, rnn_pred_testlabels > 0.4, average='binary')
+    #test_auc = roc_auc_score(rnn_testlabels, rnn_pred_testlabels)
+    #test_acc = accuracy_score(rnn_testlabels, rnn_pred_testlabels > 0.4)
+    #print('rnnAUC: %0.04f' % (test_auc))
+    #print('rnnACC: %0.04f' % (test_acc))
+    #print("  rnn test Precision, Recall and F1:\t\t{:.4f} %\t\t{:.4f}\t\t{:.4f}".format(test_pre_rec_f1[0],
+     #                                                                               test_pre_rec_f1[1],
+      #                                                                              test_pre_rec_f1[2]))
     '''comment to run with other stuff 
     epoch = 5
     wv_testlabels = np.load("rnnwordvec_results/testlabels_" + str(epoch) + ".npy")
@@ -460,7 +460,7 @@ def eval(epoch):
 
     import matplotlib.pyplot as plt
     plt.plot(rec, pre, label='CONTENT')
-    plt.plot(rec_rnn, pre_rnn, label='RNN')
+    #plt.plot(rec_rnn, pre_rnn, label='RNN')
     #plt.plot(rec_wv, pre_wv, label='RNN+word2vec')
     plt.legend()
 
@@ -584,7 +584,7 @@ if __name__ == '__main__':
     #W_embed = loadEmbeddingMatrix(wordvecPath)
     #main(data_sets, W_embed)
     #main(data_sets)
-    eval(2)
+    eval(7)
 
     thetaPath = "C:/Kirti/MS DS/DLH/prj/theta_with_rnnvec/thetas_train1.npy"
     clustering(thetaPath, data_sets)
